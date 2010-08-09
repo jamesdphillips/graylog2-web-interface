@@ -9,26 +9,70 @@
   <%= stylesheet_link_tag "dashboard" %>
   <%= stylesheet_link_tag "messages" %>
   <%= javascript_include_tag "jquery-1.4.2.min" %>
+  <%= javascript_include_tag "jquery-ui-1.8.4.custom.min" %>
   <%= javascript_include_tag "dashboard" %>
 
   <script type="text/javascript">
+    var requests = new Array(3);
+    requests[0] = '<%= ActiveSupport::JSON::encode({ :type => "status", :interval => Setting.get_message_count_interval(current_user), :maximum => Setting.get_message_max_count(current_user) }) %>';
+    requests[1] = '<%= ActiveSupport::JSON::encode({ :type => "lastmessage" }) %>';
+    requests[2] = '<%= ActiveSupport::JSON::encode({ :type => "messagecount", :interval => Setting.get_message_count_interval(current_user) }) %>';
+
     ws = new WebSocket("ws://127.0.0.1:8080");
-    ws.onmessage = function(evt) { alert("got message: " + evt.data) };
-    ws.onclose = function() { alert("socket closed"); };
-    ws.onopen = function() {
-      var request = Array;
-      request['status'] = '<%= ActiveSupport::JSON::encode({ :type => "status" }) %>';
-      request['lastmessage'] = '<%= ActiveSupport::JSON::encode({ :type => "lastmessage" }) %>';
-      request['messagecount'] = '<%= ActiveSupport::JSON::encode({
-            :type => "messagecount",
-            :interval => Setting.get_message_count_interval(current_user),
-            :maximum => Setting.get_message_max_count(current_user)}) %>';
-      ws.send(request['messagecount']);
+    ws.onmessage = function(evt) {
+      message = $.parseJSON(evt.data);
+      switch(message.t) {
+        case "status":
+          break;
+        case "lastmessage":
+          updateLastMessage(message.m);
+          break;
+        case "messagecount":
+          updateMessageCount(message.m);
+          break;
+        case "system":
+          alert("SYSTEM:" + message.m);
+      }
     };
+    
+    ws.onclose = function() { alert("socket closed"); };
+
+    ws.onopen = function() {
+      setInterval(function() { sendRequests(ws) }, 500)
+    };
+
+    function sendRequests(socket) {
+      for (var i = 0; i < requests.length; i++) {
+        socket.send(requests[i])
+      }
+    }
+
+    function updateLastMessage(message) {
+      lastMessage = $("#lastmessage");
+      if(lastMessage.html() != message) {
+        lastMessage.html(message);
+        lastMessage.effect("highlight", {}, 250);
+      }
+    }
+
+    function updateMessageCount(message) {
+      messageCount = $("#messagecount");
+      newCount = parseInt(message);
+      oldCount = parseInt(messageCount.html());
+      if (oldCount != newCount) {
+        messageCount.html(newCount);
+        if (newCount > oldCount) {
+          countDirection = "up";
+        } else {
+          countDirection = "down";
+        }
+
+        $("#status").stop(true, true).effect("bounce", { times: 1, direction: countDirection });
+      }
+    }
   </script>
 </head>
 <body>
-
   <% message_count_interval = Setting.get_message_count_interval(current_user) %>
 
   <div id="top">
@@ -42,9 +86,11 @@
 
   <div id="statuscontainer" class="status-<%=h Message.count_of_last_minutes(message_count_interval) > Setting.get_message_max_count(current_user) ? 'problems' : 'okay' %>">
     <div id="status">
-      <h1><%= Message.count_of_last_minutes(message_count_interval) %> messages / <%=h message_count_interval %> minutes</h1>
+      <h1><span id="messagecount"><%= Message.count_of_last_minutes(message_count_interval) %></span> messages / <%=h message_count_interval %> minutes</h1>
     </div>
   </div>
+
+  <div id="lastmessage"></div>
 
   <div id="content">
     <%= yield %>

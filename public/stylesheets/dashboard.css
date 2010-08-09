@@ -44,6 +44,9 @@ th {
     text-shadow: -1px -1px 0 #060;
     font-size: 50px;
     margin-left: 15px;
+    width: 100%;
+    display: block;
+    height: 100%;
 }
 
 .status-problems {
@@ -62,4 +65,10 @@ th {
 .messages td {
     padding-top: 5px !important;
     padding-bottom: 5px !important;
+}
+
+#lastmessage {
+    width: 90%;
+    margin: 15px auto;
+    font-size: 30px;
 }
