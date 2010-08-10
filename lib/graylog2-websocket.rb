@@ -17,8 +17,7 @@ module Graylog2
         request = ActiveSupport::JSON.decode msg
         case request["type"]
           when "status":
-            state = Message.count_of_last_minutes(request["interval"]) > Setting.get_message_max_count(request["maximum"])
-            if state == true
+            if Message.count_of_last_minutes(request["interval"].to_i) > request["maximum"].to_i
               glsend "0", "status"
             else
               glsend "1", "status"
@@ -35,7 +34,8 @@ module Graylog2
 
           when "lastmessages":
         end
-      rescue
+      rescue => e
+        puts "ERROR: " + e
         glsend "error"
       end
     end
