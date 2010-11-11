@@ -21,10 +21,9 @@ class Message
   scope :by_blacklisted_terms, lambda { |terms, filtered = false|
     where((filtered ? :message.in : :message.nin) => terms.collect { |term| /#{Regexp.escape term}/})
   }
-  scope :by_blacklist, lambda {|blacklist| by_blacklisted_terms(blacklist.all_terms)}
-  scope :by_blacklist_filtered, lambda {|blacklist| by_blacklisted_terms(blacklist.all_terms, true)}
+  scope :by_blacklist, lambda {|blacklist| by_blacklisted_terms(blacklist.all_terms, true)}
   scope :page, lambda {|number| skip(self.get_offset(number))}
-  scope :default_scope, fields(:full_message => 0).order("$natural DESC").not_deleted.limit(LIMIT)
+  scope :default_scope, fields(:full_message => 0).not_deleted.limit(LIMIT).order("$natural DESC")
 
   def self.get_conditions_from_date(timeframe)
     conditions = {}
@@ -47,12 +46,12 @@ class Message
     page = 1 if page.blank?
     
     b = Blacklist.find(id)
-    return by_blacklist_filtered(b).default_scope.page(page).all
+    return by_blacklist(b).default_scope.page(page).all
   end
 
   def self.count_of_blacklist id
     b = Blacklist.find(id)
-    return by_blacklist_filtered(b).count
+    return by_blacklist(b).count
   end
 
   def self.all_with_blacklist page = 1, limit = LIMIT
@@ -93,14 +92,14 @@ class Message
     s.streamrules.each do |rule|
       conditions = conditions.where(rule.to_condition)
     end
-
+    
     conditions
   end
 
   def self.all_of_stream stream_id, page = 1, newer_than = nil
     page = 1 if page.blank?
 
-    newer_than.nil? ? by_stream(stream_id).default_scope.page(page).all : by_stream(stream_id).order("$natural DESC").where(:created_at.gt => newer_than)
+    newer_than.nil? ? by_stream(stream_id).default_scope.page(page) : by_stream(stream_id).not_deleted.where(:created_at.gt => newer_than).order("$natural DESC")
   end
 
   def self.count_stream stream_id
